@@ -1,5 +1,6 @@
 (() => {
-  const CHAT_URL = "https://sunfujii.github.io/chat_sample_local_build/";
+  //const CHAT_URL = "https://sunfujii.github.io/chat_sample_local_build/";
+  const CHAT_URL = "http://localhost:8080/out/";
   const SIDEBAR_WIDTH = 400;
 
   // スタイルを挿入

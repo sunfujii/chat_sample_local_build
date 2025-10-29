@@ -7,24 +7,69 @@ interface Message {
   text: string;
 }
 
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/****************/exec";
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const sendMessage = () => {
+  // --- GASにPOSTしてレスポンスを取得 ---
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
-    // ユーザー発言
-    const newMsg: Message = { sender: "user", text: input };
-    const botMsg: Message = { sender: "bot", text: `>${input}` };
-
-    setMessages((prev) => [...prev, newMsg, botMsg]);
+    const userMsg: Message = { sender: "user", text: input };
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setLoading(true);
+
+    try {
+      // POSTリクエストを送信
+      const res = await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        //TODO:GASのCORS対策のため一時対応
+        //headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ prompt: input }),
+      });
+
+      if (!res.ok) {
+        // GAS側のエラー応答も text で読む
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      // ✅ ボディは一度だけ読む
+      const bodyText = await res.text();
+
+      // JSONで返ってきた場合にも対応
+      let replyText = bodyText;
+      try {
+        const parsed = JSON.parse(bodyText);
+        if (parsed && typeof parsed === "object") {
+          replyText = parsed.reply ?? parsed.response ?? JSON.stringify(parsed);
+        }
+      } catch {
+        // JSONでなければそのまま使う
+      }
+
+      // GASのレスポンスを表示
+      const botMsg: Message = { sender: "bot", text: replyText };
+      setMessages((prev) => [...prev, botMsg]);
+    } catch (err: any) {
+      const botMsg: Message = {
+        sender: "bot",
+        text: `⚠️ エラーが発生しました: ${err.message}`,
+      };
+      setMessages((prev) => [...prev, botMsg]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.header}>シンプルチャット（Next.js版）</h2>
+      <h2 style={styles.header}>GAS連携チャット</h2>
 
       <div style={styles.chatArea}>
         {messages.map((msg, i) => (
@@ -41,18 +86,23 @@ export default function ChatPage() {
             {msg.text}
           </div>
         ))}
+        {loading && (
+          <div style={{ fontStyle: "italic", color: "#555" }}>
+            GASから応答を待っています...
+          </div>
+        )}
       </div>
 
       <div style={styles.inputRow}>
         <input
           type="text"
-          placeholder="メッセージを入力..."
+          placeholder="質問を入力..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           style={styles.input}
         />
-        <button onClick={sendMessage} style={styles.button}>
+        <button onClick={sendMessage} style={styles.button} disabled={loading}>
           送信
         </button>
       </div>
@@ -86,6 +136,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 12px",
     borderRadius: "10px",
     maxWidth: "70%",
+    wordBreak: "break-word",
   },
   inputRow: {
     display: "flex",

@@ -2,7 +2,8 @@
 (function() {
   if (document.getElementById('my-floating-chat')) return;
 
-  const CHAT_URL = "https://sunfujii.github.io/chat_sample_local_build/";
+  //const CHAT_URL = "https://sunfujii.github.io/chat_sample_local_build/";
+  const CHAT_URL = "http://localhost:8080/out/";
 
   const style = document.createElement('style');
   style.textContent = `
